@@ -1,0 +1,62 @@
+<!doctype html>
+<html lang="pt"><head><meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="theme-color" content="#2f7d5b">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-title" content="Economias">
+<link rel="manifest" href="manifest.webmanifest">
+<link rel="apple-touch-icon" href="icons/icon-180.png">
+<link rel="icon" href="icons/icon-192.png">
+<title>Economias de Casa</title>
+<link rel="stylesheet" href="style.css">
+</head><body><main>
+<div id="err" hidden></div>
+<div id="login" class="card" hidden>
+  <h2>🏠 Economias de Casa</h2>
+  <div class="row"><input id="em" class="f" type="email" autocomplete="username" placeholder="Email"><input id="pw" class="f" type="password" autocomplete="current-password" placeholder="Palavra-passe"><button class="p" id="li">Entrar</button></div>
+</div>
+<div id="app" hidden>
+<div class="row sp" style="margin-bottom:12px">
+  <h1>🏠 Economias de Casa</h1>
+  <div class="row"><button id="pv">‹</button><b id="ml" style="min-width:110px;text-align:center"></b><button id="nx">›</button></div>
+</div>
+
+<div class="row" style="margin-bottom:12px"><button id="nD" class="on">Painel</button><button id="nB">Balanço</button></div>
+<div id="vD">
+<div class="card"><div class="grid" id="sum"></div></div>
+
+<div class="card">
+  <h2>Novo movimento</h2>
+  <div class="row" style="margin-bottom:8px">
+    <button id="tOut" class="on">Despesa</button><button id="tIn">Receita</button><button id="tSv">Poupança</button>
+    <input id="amt" class="f" type="number" inputmode="decimal" step="0.01" placeholder="Valor €">
+  </div>
+  <div class="row">
+    <select id="cat" class="f"></select>
+    <input id="note" class="f" placeholder="Descrição">
+    <input id="dt" class="f" type="date">
+    <button class="p" id="add">Adicionar</button>
+  </div>
+</div>
+
+<div class="card"><h2>Orçamento do mês</h2><div id="bud"></div></div>
+
+<div class="card">
+  <h2>Poupança e objetivos</h2>
+  <div class="row" style="margin-bottom:10px">
+    <input id="gn" class="f" placeholder="Objetivo (ex.: férias)">
+    <input id="gt" class="f" type="number" inputmode="decimal" placeholder="Meta €">
+    <button id="ga">Criar</button>
+  </div>
+  <div class="row sp" style="margin-bottom:10px"><span class="k">Poupança disponível para objetivos</span><b id="av"></b></div><div id="goals"></div>
+</div>
+
+<div class="card"><h2>Movimentos</h2><div id="list"></div></div>
+</div>
+<div id="vB" hidden><div class="card"><div class="row" style="margin-bottom:12px"><button id="bM" class="on">Mensal</button><button id="bY">Anual</button><b id="bt" style="margin-left:auto"></b></div><div id="bal"></div></div></div>
+<div class="row" style="justify-content:center"><button id="lo" class="x">Terminar sessão</button></div>
+</div>
+</main>
+<script type="module" src="app.js"></script>
+</body></html>
