@@ -116,9 +116,10 @@ $('#ac').onclick=()=>{
   $('#nc').value='';
 };
 function renderEdit(){
-  $('#bud').innerHTML=CATS.map(c=>`<div class="row" style="margin-bottom:8px"><input class="f" data-o="${esc(c)}" value="${esc(c)}" ${c==='Outros'?'disabled':''}>${c==='Outros'?'':`<button class="x" data-del="${esc(c)}">✕</button>`}</div>`).join('')+'<div class="k">As alterações valem só para este mês. Muda o nome e sai do campo para guardar. "Outros" não se altera.</div>';
+  $('#bud').innerHTML=CATS.map(c=>`<div class="row" style="margin-bottom:8px"><input class="f" data-o="${esc(c)}" value="${esc(c)}" ${c==='Outros'?'disabled':''}>${c==='Outros'?'':`<button class="x" data-del="${esc(c)}">✕</button>`}</div>`).join('')+'<div class="k">As alterações valem só para este mês. Muda o nome e sai do campo para guardar. "Outros" não se altera.</div><button id="rc" style="margin-top:10px">Repor categorias predefinidas</button>';
   document.querySelectorAll('#bud [data-o]').forEach(i=>i.onchange=()=>renameCat(i.dataset.o,i.value.trim()));
   document.querySelectorAll('#bud [data-del]').forEach(b=>b.onclick=()=>delCat(b.dataset.del));
+  $('#rc').onclick=resetCats;
 }
 function catsFor(m){
   const k=Object.keys(catsBy).filter(x=>x<=m).sort().pop();
@@ -142,6 +143,16 @@ async function delCat(c){
   if(l.length&&!confirm('Há '+l.length+' despesa(s) em "'+c+'" neste mês. Passam para "Outros". Continuar?'))return;
   try{
     await db.doc('cat/'+mm).set({list:CATS.filter(x=>x!==c)});
+    for(const t of l)await db.doc('tx/'+t.id).update({cat:'Outros'});
+  }catch(e){err(e)}
+}
+
+async function resetCats(){
+  if(!db)return;
+  const mm=M,l=tx.filter(t=>t.type==='out'&&(t.date||'').startsWith(mm)&&!DEF.includes(t.cat));
+  if(!confirm('Repor as categorias predefinidas neste mês?'+(l.length?' '+l.length+' despesa(s) com categorias personalizadas passam para "Outros".':'')))return;
+  try{
+    await db.doc('cat/'+mm).set({list:[...DEF]});
     for(const t of l)await db.doc('tx/'+t.id).update({cat:'Outros'});
   }catch(e){err(e)}
 }
