@@ -16,7 +16,8 @@ const shim={
 const $=s=>document.querySelector(s);
 const eur=n=>(n||0).toLocaleString('pt-PT',{style:'currency',currency:'EUR'});
 const esc=s=>String(s).replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
-const CATS=['Habitação','Supermercado','Energia e água','Transportes','Saúde','Lazer','Outros'];
+const DEF=['Habitação','Supermercado','Energia e água','Transportes','Saúde','Lazer','Outros'];
+let CATS=[...DEF],catBase=[...DEF],catsBy={},editCats=false;
 const today=()=>new Date().toLocaleDateString('sv-SE');
 const selDate=()=>M===today().slice(0,7)?today():M+'-01';
 const curBud=()=>{if(buds[M])return buds[M];const k=Object.keys(buds).filter(x=>x<M).sort().pop();return k?buds[k]:bud};
@@ -27,7 +28,7 @@ async function w(p){try{await p}catch(e){err(e)}}
 
 function shift(d){const[y,m]=M.split('-').map(Number);const t=new Date(y,m-1+d,1);M=t.getFullYear()+'-'+String(t.getMonth()+1).padStart(2,'0');$('#dt').value=selDate();renderMonth()}
 $('#pv').onclick=()=>shift(-1);$('#nx').onclick=()=>shift(1);
-$('#cat').innerHTML=CATS.map(c=>`<option>${c}</option>`).join('');
+const fillCats=()=>{const v=$('#cat').value;$('#cat').innerHTML=CATS.map(c=>`<option>${esc(c)}</option>`).join('');if(CATS.includes(v))$('#cat').value=v};fillCats();
 $('#dt').value=selDate();
 
 function setType(t){type=t;$('#tOut').className=t==='out'?'on':'';$('#tIn').className=t==='in'?'on':'';$('#tSv').className=t==='sv'?'on':'';$('#cat').style.display=t==='out'?'':'none'}
@@ -40,6 +41,7 @@ $('#add').onclick=()=>{
 };
 
 function renderMonth(){
+  const nc=catsFor(M);if(nc.join('|')!==CATS.join('|')){CATS=nc;fillCats()}
   const[y,m]=M.split('-').map(Number);
   $('#ml').textContent=new Date(y,m-1,1).toLocaleDateString('pt-PT',{month:'long',year:'numeric'});
   const cur=tx.filter(t=>(t.date||'').startsWith(M)).sort((a,b)=>(b.date||'').localeCompare(a.date||'')||b.ts-a.ts);
@@ -57,8 +59,9 @@ function renderMonth(){
   $('#bud').innerHTML=CATS.map(c=>{
     const sp=cur.filter(t=>t.type==='out'&&t.cat===c).reduce((s,t)=>s+t.amount,0),b=B[c]||0;
     const pct=b?Math.min(100,sp/b*100):0;
-    return `<div class="b"><div class="row sp"><span>${c}</span><span class="row"><span class="${b&&sp>b?'neg':''}">${eur(sp)}</span> / <input data-c="${c}" type="number" inputmode="decimal" value="${b||''}" placeholder="€"></span></div><div class="bar"><i class="${b&&sp>b?'o':''}" style="width:${pct}%"></i></div></div>`}).join('');
+    return `<div class="b"><div class="row sp"><span>${esc(c)}</span><span class="row"><span class="${b&&sp>b?'neg':''}">${eur(sp)}</span> / <input data-c="${esc(c)}" type="number" inputmode="decimal" value="${b||''}" placeholder="€"></span></div><div class="bar"><i class="${b&&sp>b?'o':''}" style="width:${pct}%"></i></div></div>`}).join('');
   document.querySelectorAll('#bud input').forEach(i=>i.onchange=()=>{if(db)w(db.doc('bud/'+M).set({...curBud(),[i.dataset.c]:parseFloat(i.value)||0}))});
+  if(editCats)renderEdit();
   $('#list').innerHTML=cur.length?cur.map(t=>`<div class="t row sp"><div><div>${esc(t.note||t.cat)}</div><div class="k">${esc(t.date)} · ${esc(t.cat)}</div></div><div class="row"><b class="${t.type==='in'?'pos':''}">${t.type==='in'?'+':'−'}${eur(t.amount)}</b><button class="x" data-d="${t.id}">✕</button></div></div>`).join(''):'<div class="k">Sem movimentos neste mês.</div>';
   document.querySelectorAll('[data-d]').forEach(b=>b.onclick=()=>db&&w(db.doc('tx/'+b.dataset.d).delete()));
   renderBal();
@@ -79,7 +82,7 @@ function renderBal(){
   if(bm==='m'){
     const a=tx.filter(t=>(t.date||'').startsWith(M)),B=curBud();
     const inc=S(a,'in'),out=S(a,'out'),gs=S(a,'gs'),sv=S(a,'sv'),sd=inc-out-sv,tb=CATS.reduce((s,c)=>s+(B[c]||0),0);
-    const rows=CATS.map(c=>{const sp=a.filter(t=>t.type==='out'&&t.cat===c).reduce((s,t)=>s+t.amount,0),b=B[c]||0;return `<div class='t row sp'><span>${c}</span><span class='${b&&sp>b?'neg':''}'>${eur(sp)} / ${eur(b)}</span></div>`}).join('');
+    const rows=CATS.map(c=>{const sp=a.filter(t=>t.type==='out'&&t.cat===c).reduce((s,t)=>s+t.amount,0),b=B[c]||0;return `<div class='t row sp'><span>${esc(c)}</span><span class='${b&&sp>b?'neg':''}'>${eur(sp)} / ${eur(b)}</span></div>`}).join('');
     el.innerHTML=`<div class='grid' style='margin-bottom:14px'>${card('Receitas',eur(inc),'pos')}${card('Despesas',eur(out+gs),'neg')}${card('Poupado no mês',eur(sv))}${card('Saldo do mês',eur(sd),sd<0?'neg':'pos')}${card('Taxa de poupança',pct(sv,inc))}${card('Orçamento usado',pct(out,tb))}</div><h2>Por categoria (real / orçamento)</h2>${rows}${gs?`<div class='t row sp'><span>Objetivos pagos da poupança</span><span>${eur(gs)}</span></div>`:''}`;
   }else{
     const a=tx.filter(t=>(t.date||'').startsWith(y));
@@ -88,8 +91,8 @@ function renderBal(){
     let rows='';
     for(let m=1;m<=12;m++){const k=y+'-'+String(m).padStart(2,'0'),b=a.filter(t=>(t.date||'').startsWith(k)),i=S(b,'in'),o=S(b,'out')+S(b,'gs'),s=S(b,'sv'),d=i-S(b,'out')-s;
       rows+=`<tr><td>${new Date(y,m-1,1).toLocaleDateString('pt-PT',{month:'short'})}</td><td>${eur(i)}</td><td>${eur(o)}</td><td>${eur(s)}</td><td class='${d<0?'neg':'pos'}'>${eur(d)}</td></tr>`}
-    const cr=CATS.map(c=>[c,a.filter(t=>t.type==='out'&&t.cat===c).reduce((s,t)=>s+t.amount,0)]).filter(x=>x[1]>0).sort((p,q)=>q[1]-p[1]);
-    el.innerHTML=`<div class='grid' style='margin-bottom:14px'>${card('Receitas',eur(inc),'pos')}${card('Despesas',eur(out+gs),'neg')}${card('Poupado no ano',eur(sv))}${card('Saldo do ano',eur(sd),sd<0?'neg':'pos')}${card('Taxa de poupança',pct(sv,inc))}${card('Poupança acumulada',eur(cum))}</div><div style='overflow-x:auto'><table><tr><th>Mês</th><th>Receitas</th><th>Despesas</th><th>Poupança</th><th>Saldo</th></tr>${rows}<tr><th>Total</th><th>${eur(inc)}</th><th>${eur(out+gs)}</th><th>${eur(sv)}</th><th>${eur(sd)}</th></tr></table></div><h2 style='margin-top:14px'>Despesas por categoria</h2>${cr.length?cr.map(([c,v])=>`<div class='t row sp'><span>${c}</span><span>${eur(v)} · ${pct(v,out)}</span></div>`).join(''):`<div class='k'>Sem despesas.</div>`}`;
+    const cr=[...new Set(a.filter(t=>t.type==='out').map(t=>t.cat))].map(c=>[c,a.filter(t=>t.type==='out'&&t.cat===c).reduce((s,t)=>s+t.amount,0)]).sort((p,q)=>q[1]-p[1]);
+    el.innerHTML=`<div class='grid' style='margin-bottom:14px'>${card('Receitas',eur(inc),'pos')}${card('Despesas',eur(out+gs),'neg')}${card('Poupado no ano',eur(sv))}${card('Saldo do ano',eur(sd),sd<0?'neg':'pos')}${card('Taxa de poupança',pct(sv,inc))}${card('Poupança acumulada',eur(cum))}</div><div style='overflow-x:auto'><table><tr><th>Mês</th><th>Receitas</th><th>Despesas</th><th>Poupança</th><th>Saldo</th></tr>${rows}<tr><th>Total</th><th>${eur(inc)}</th><th>${eur(out+gs)}</th><th>${eur(sv)}</th><th>${eur(sd)}</th></tr></table></div><h2 style='margin-top:14px'>Despesas por categoria</h2>${cr.length?cr.map(([c,v])=>`<div class='t row sp'><span>${esc(c)}</span><span>${eur(v)} · ${pct(v,out)}</span></div>`).join(''):`<div class='k'>Sem despesas.</div>`}`;
   }
 }
 $('#ga').onclick=()=>{const n=$('#gn').value.trim(),t=parseFloat($('#gt').value);if(!db||!n||!(t>0))return;w(db.collection('goals').add({name:n,target:t,saved:0,ts:Date.now()}));$('#gn').value='';$('#gt').value=''};
@@ -104,17 +107,58 @@ function renderGoals(){const av=avail();$('#av').textContent=eur(av);$('#av').cl
   document.querySelectorAll('[data-g]').forEach(i=>i.oninput=()=>{const m=document.querySelector('[data-m="'+i.dataset.g+'"]');if(parseFloat(i.value)>avail())warn(i.dataset.g);else if(m)m.hidden=true});
 }
 
+// ---- categorias editáveis
+$('#ec').onclick=()=>{editCats=!editCats;$('#ec').textContent=editCats?'Concluir':'Editar categorias';renderMonth()};
+$('#ac').onclick=()=>{
+  const n=$('#nc').value.trim();
+  if(!db||!n||CATS.some(c=>c.toLowerCase()===n.toLowerCase()))return;
+  w(db.doc('cat/'+M).set({list:[...CATS.filter(c=>c!=='Outros'),n,'Outros']}));
+  $('#nc').value='';
+};
+function renderEdit(){
+  $('#bud').innerHTML=CATS.map(c=>`<div class="row" style="margin-bottom:8px"><input class="f" data-o="${esc(c)}" value="${esc(c)}" ${c==='Outros'?'disabled':''}>${c==='Outros'?'':`<button class="x" data-del="${esc(c)}">✕</button>`}</div>`).join('')+'<div class="k">As alterações valem só para este mês. Muda o nome e sai do campo para guardar. "Outros" não se altera.</div>';
+  document.querySelectorAll('#bud [data-o]').forEach(i=>i.onchange=()=>renameCat(i.dataset.o,i.value.trim()));
+  document.querySelectorAll('#bud [data-del]').forEach(b=>b.onclick=()=>delCat(b.dataset.del));
+}
+function catsFor(m){
+  const k=Object.keys(catsBy).filter(x=>x<=m).sort().pop();
+  const l=[...(k?catsBy[k]:catBase)];
+  if(!l.includes('Outros'))l.push('Outros');
+  return l;
+}
+async function renameCat(old,nw){
+  if(!db||!nw||nw===old){renderMonth();return}
+  if(CATS.some(c=>c.toLowerCase()===nw.toLowerCase())){err({message:'Já existe uma categoria com esse nome.'});renderMonth();return}
+  const mm=M,B=curBud(),l=tx.filter(t=>t.type==='out'&&(t.date||'').startsWith(mm)&&t.cat===old);
+  try{
+    await db.doc('cat/'+mm).set({list:CATS.map(c=>c===old?nw:c)});
+    if(old in B){const{[old]:val,...r}=B;await db.doc('bud/'+mm).set({...r,[nw]:val})}
+    for(const t of l)await db.doc('tx/'+t.id).update({cat:nw});
+  }catch(e){err(e)}
+}
+async function delCat(c){
+  if(!db||c==='Outros')return;
+  const mm=M,l=tx.filter(t=>t.type==='out'&&(t.date||'').startsWith(mm)&&t.cat===c);
+  if(l.length&&!confirm('Há '+l.length+' despesa(s) em "'+c+'" neste mês. Passam para "Outros". Continuar?'))return;
+  try{
+    await db.doc('cat/'+mm).set({list:CATS.filter(x=>x!==c)});
+    for(const t of l)await db.doc('tx/'+t.id).update({cat:'Outros'});
+  }catch(e){err(e)}
+}
+
 const unsubs=[];
 function start(){
   db=shim;
   unsubs.push(
     db.collection('tx').onSnapshot(s=>{tx=s.docs.map(d=>({id:d.id,...d.data()}));renderMonth();renderGoals()},err),
     db.collection('bud').onSnapshot(s=>{buds={};s.docs.forEach(d=>buds[d.id]=d.data());renderMonth()},err),
+    db.doc('cfg/cats').onSnapshot(s=>{const d=s.data();const l=d&&Array.isArray(d.list)&&d.list.length?[...d.list]:[...DEF];if(!l.includes('Outros'))l.push('Outros');catBase=l;renderMonth()},err),
+    db.collection('cat').onSnapshot(s=>{catsBy={};s.docs.forEach(d=>{if(Array.isArray(d.data().list))catsBy[d.id]=d.data().list});renderMonth()},err),
     db.doc('cfg/budgets').onSnapshot(s=>{bud=s.data()||{};renderMonth()},err),
     db.collection('goals').onSnapshot(s=>{goals=s.docs.map(d=>({id:d.id,...d.data()})).sort((a,b)=>a.ts-b.ts);renderGoals()},err)
   );
 }
-function stop(){unsubs.splice(0).forEach(u=>u());db=null;tx=[];bud={};buds={};goals=[];renderMonth();renderGoals()}
+function stop(){unsubs.splice(0).forEach(u=>u());db=null;CATS=[...DEF];catBase=[...DEF];catsBy={};tx=[];bud={};buds={};goals=[];renderMonth();renderGoals()}
 
 onAuthStateChanged(auth,u=>{
   if(u){$('#login').hidden=true;$('#app').hidden=false;start()}
